@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <!-- 移动端适配：禁止用户缩放，保证布局稳定 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <!-- iOS 全屏 Web App 支持 -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <!-- 禁止 iOS 自动识别电话号码 -->
+  <meta name="format-detection" content="telephone=no" />
+  <!-- 微信/小红书分享时的页面描述 -->
+  <meta name="description" content="MBTI 已经过时，WTNL 来了。30 道题测出你的真实人格，不保证准确，保证好笑。" />
+  <!-- ================================================================
+       修改这里可以改网页标题（浏览器标签页显示的文字）
+  ================================================================ -->
+  <title>WTNL人格测试 · 我太难了人格测试</title>
+
+  <style>
+    /* ================================================================
+       视觉样式区
+       主题颜色统一在 :root 的 CSS 变量里管理，改一处全局生效
+    ================================================================ */
+
+    :root {
+      /* ---- 主题色 ---- */
+      --clr-primary:       #9333ea;   /* 深紫，主要按钮/强调 */
+      --clr-primary-mid:   #c084fc;   /* 中紫，进度条/图标 */
+      --clr-primary-light: #ede9fe;   /* 浅紫，背景填充 */
+      --clr-accent:        #ec4899;   /* 玫粉，匹配度等高亮 */
+      --clr-accent-light:  #fce7f3;   /* 浅粉，选项选中背景 */
+
+      /* ---- 文字色 ---- */
+      --clr-text:          #374151;   /* 主文字 */
+      --clr-text-sub:      #6b7280;   /* 次要文字 */
+      --clr-text-hint:     #9ca3af;   /* 提示/占位文字 */
+
+      /* ---- 背景/卡片 ---- */
+      --bg-page: linear-gradient(150deg, #fdf2f8 0%, #f5f0ff 45%, #ede9fe 100%);
+      --bg-card: rgba(255, 255, 255, 0.80);
+      --clr-border: rgba(192, 132, 252, 0.22);
+      --shadow-card: 0 4px 24px rgba(147, 51, 234, 0.10);
+
+      /* ---- 圆角 ---- */
+      --radius-card: 20px;
+      --radius-btn:  16px;
+      --radius-sm:   12px;
+
+      /* ---- 过渡 ---- */
+      --transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ---- Reset ---- */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent; /* 消除移动端点击高亮 */
+    }
+
+    html {
+      height: 100%;
+      -webkit-text-size-adjust: 100%; /* 防止 iOS 旋转时字号自动调大 */
+    }
+
+    body {
+      min-height: 100%;
+      background: var(--bg-page);
+      background-attachment: fixed;
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC',
+                   'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+      color: var(--clr-text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* 加载中禁止一切点击（pointer-events 在加载完成后由 JS 移除） */
+    body.is-loading {
+      pointer-events: none;
+    }
+
+    /* ================================================================
+       背景装饰 —— 三个模糊光晕球，纯 CSS，不影响点击
+    ================================================================ */
+    .bg-deco {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .bg-deco span {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.35;
+    }
+    .bg-deco .d1 { width: 420px; height: 420px; background: #f9a8d4; top: -120px; right: -100px; }
+    .bg-deco .d2 { width: 320px; height: 320px; background: #c084fc; bottom: 60px;  left: -80px;  }
+    .bg-deco .d3 { width: 280px; height: 280px; background: #e0d7ff; top: 38%;    left: 55%;    }
+
+    /* ================================================================
+       三屏公共样式
+    ================================================================ */
+    .screen {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* 隐藏状态：display:none */
+    .screen.is-hidden {
+      display: none;
+    }
+
+    /* 进场动画 */
+    .screen.enter-anim {
+      animation: screenEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+    }
+    @keyframes screenEnter {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ================================================================
+       加载页
+    ================================================================ */
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: var(--bg-page);
+      background-attachment: fixed;
+      justify-content: center;
+      gap: 28px;
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    /* 品牌徽章 */
+    .ld-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--clr-primary), var(--clr-primary-mid));
+      color: #fff;
+      font-size: clamp(32px, 10vw, 56px);
+      font-weight: 900;
+      letter-spacing: 5px;
+      padding: 10px 28px 12px;
+      border-radius: var(--radius-card);
+      box-shadow: 0 8px 32px rgba(147, 51, 234, 0.32);
+    }
+
+    .ld-tagline {
+      font-size: clamp(13px, 3.6vw, 16px);
+      color: var(--clr-text-sub);
+      letter-spacing: 1px;
+      margin-top: 8px;
+    }
+
+    /* 旋转菊花 */
+    .ld-spinner {
+      width: 52px;
+      height: 52px;
+      border: 4px solid var(--clr-primary-light);
+      border-top-color: var(--clr-primary);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 进度条 */
+    .ld-progress-wrap {
+      width: min(320px, 78vw);
+    }
+    .ld-progress-track {
+      height: 8px;
+      background: var(--clr-primary-light);
+      border-radius: 100px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .ld-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--clr-primary-mid), var(--clr-primary));
+      border-radius: 100px;
+      transition: width 0.2s ease;
+    }
+    .ld-percent {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--clr-primary);
+    }
+
+    .ld-tip {
+      font-size: 13px;
+      color: var(--clr-text-hint);
+    }
+
+    /* ================================================================
+       答题页
+    ================================================================ */
+    #quiz-screen {
+      justify-content: flex-start;
+      padding-bottom: 100px; /* 为底部固定按钮留空 */
+    }
+
+    /* 顶部吸顶 Header */
+    .quiz-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      width: 100%;
+      background: rgba(253, 242, 248, 0.94);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      padding: 14px 18px 10px;
+      border-bottom: 1px solid var(--clr-border);
+    }
+
+    .quiz-title {
+      font-size: clamp(16px, 4.5vw, 20px);
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--clr-primary), var(--clr-accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .quiz-prog-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .quiz-prog-track {
+      flex: 1;
+      height: 6px;
+      background: var(--clr-primary-light);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+    .quiz-prog-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--clr-accent), var(--clr-primary));
+      border-radius: 100px;
+      transition: width var(--transition);
+    }
+    .quiz-prog-text {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--clr-primary);
+      white-space: nowrap;
+      min-width: 48px;
+      text-align: right;
+    }
+
+    /* 题目列表容器 */
+    .questions-wrap {
+      width: 100%;
+      max-width: 640px;
+      padding: 18px 14px;
+    }
+
+    /* 单题卡片 */
+    .q-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: var(--radius-card);
+      border: 1px solid var(--clr-border);
+      box-shadow: var(--shadow-card);
+      padding: 18px 16px;
+      margin-bottom: 14px;
+      transition: box-shadow var(--transition);
+    }
+    /* 未答高亮脉冲（JS 临时添加） */
+    .q-card.pulse {
+      box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.38), var(--shadow-card);
+    }
+
+    .q-no {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--clr-primary-mid);
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+    .q-title {
+      font-size: clamp(14px, 4vw, 16px);
+      font-weight: 600;
+      color: var(--clr-text);
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    .opts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    /* 选项按钮 —— 超大点击区域，手机友好 */
+    .opt-btn {
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+      width: 100%;
+      min-height: 50px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.68);
+      border: 2px solid var(--clr-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      text-align: left;
+      font-size: clamp(13px, 3.8vw, 15px);
+      color: var(--clr-text);
+      transition: all var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    /* 悬停效果 */
+    .opt-btn:hover {
+      border-color: var(--clr-primary-mid);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 14px rgba(192, 132, 252, 0.18);
+    }
+    /* 点击按下效果 */
+    .opt-btn:active { transform: scale(0.985); }
+
+    /* 选中态 */
+    .opt-btn.is-selected {
+      border-color: var(--clr-primary);
+      background: linear-gradient(135deg, var(--clr-accent-light), var(--clr-primary-light));
+      box-shadow: 0 3px 16px rgba(147, 51, 234, 0.15);
+    }
+
+    /* 圆形指示器 */
+    .opt-dot {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--clr-border);
+      background: #fff;
+      transition: all var(--transition);
+      margin-top: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .opt-btn.is-selected .opt-dot {
+      border-color: var(--clr-primary);
+      background: var(--clr-primary);
+    }
+    .opt-btn.is-selected .opt-dot::after {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .opt-text {
+      flex: 1;
+      line-height: 1.55;
+    }
+
+    /* 底部固定提交栏 */
+    .quiz-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 10px 18px calc(10px + env(safe-area-inset-bottom));
+      background: rgba(253, 242, 248, 0.96);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-top: 1px solid var(--clr-border);
+      z-index: 100;
+    }
+
+    .submit-btn {
+      display: block;
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      height: 52px;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-btn);
+      cursor: pointer;
+      transition: all var(--transition);
+      background: linear-gradient(135deg, var(--clr-primary-mid), var(--clr-primary));
+      box-shadow: 0 4px 20px rgba(147, 51, 234, 0.28);
+    }
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(147, 51, 234, 0.38);
+    }
+    .submit-btn:active { transform: scale(0.98); }
+
+    /* 未解锁（答题未完成）状态 */
+    .submit-btn.is-locked {
+      background: linear-gradient(135deg, #d1d5db, #9ca3af);
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+    .submit-btn.is-locked:hover {
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* ================================================================
+       结果页
+    ================================================================ */
+    #result-screen {
+      justify-content: flex-start;
+      padding: 22px 0 48px;
+    }
+
+    .result-wrap {
+      width: 100%;
+      max-width: 640px;
+      padding: 0 14px;
+    }
+
+    /* 主人格卡片 */
+    .personality-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: var(--radius-card);
+      border: 1px solid var(--clr-border);
+      box-shadow: var(--shadow-card);
+      padding: 28px 22px 24px;
+      margin-bottom: 14px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    /* 卡片内光斑装饰 */
+    .personality-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 70% 30%, rgba(249, 168, 212, 0.18), transparent 60%),
+        radial-gradient(ellipse at 25% 75%, rgba(192, 132, 252, 0.14), transparent 55%);
+      pointer-events: none;
+    }
+
+    .res-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 2.5px;
+      color: var(--clr-text-sub);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .res-code {
+      font-size: clamp(44px, 14vw, 68px);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, var(--clr-primary), var(--clr-accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 6px;
+    }
+
+    .res-name {
+      font-size: clamp(22px, 6.5vw, 30px);
+      font-weight: 800;
+      color: var(--clr-text);
+      margin-bottom: 16px;
+    }
+
+    .res-match-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+    .res-match-label {
+      font-size: 14px;
+      color: var(--clr-text-sub);
+    }
+    .res-match-value {
+      font-size: clamp(30px, 9vw, 40px);
+      font-weight: 900;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--clr-primary), var(--clr-accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* 系统备注框 */
+    .res-remark {
+      background: linear-gradient(135deg,
+        rgba(252, 231, 243, 0.6), rgba(237, 233, 254, 0.6));
+      border: 1px solid rgba(192, 132, 252, 0.22);
+      border-radius: var(--radius-sm);
+      padding: 11px 15px;
+      font-size: 14px;
+      color: var(--clr-text-sub);
+      font-style: italic;
+      line-height: 1.65;
+    }
+
+    /* 解读/维度卡片公共样式 */
+    .info-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: var(--radius-card);
+      border: 1px solid var(--clr-border);
+      box-shadow: var(--shadow-card);
+      padding: 22px 20px;
+      margin-bottom: 14px;
+    }
+
+    /* 卡片标题（左侧竖线装饰） */
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--clr-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .card-title::before {
+      content: '';
+      display: block;
+      width: 4px;
+      height: 17px;
+      background: linear-gradient(to bottom, var(--clr-primary), var(--clr-accent));
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    /* 解读正文 */
+    .res-detail {
+      font-size: clamp(14px, 3.8vw, 15px);
+      color: var(--clr-text);
+      line-height: 1.85;
+      white-space: pre-wrap;
+    }
+
+    /* 维度单行 */
+    .dim-item { margin-bottom: 13px; }
+    .dim-item:last-child { margin-bottom: 0; }
+    .dim-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .dim-name {
+      font-size: 13px;
+      color: var(--clr-text);
+      font-weight: 500;
+    }
+    .dim-score {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--clr-primary);
+    }
+    .dim-track {
+      height: 7px;
+      background: var(--clr-primary-light);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+    .dim-fill {
+      height: 100%;
+      width: 0%; /* 初始为 0，JS 触发动画 */
+      background: linear-gradient(90deg, var(--clr-accent), var(--clr-primary));
+      border-radius: 100px;
+      transition: width 0.85s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* 重新测试按钮 */
+    .retry-btn {
+      display: block;
+      width: 100%;
+      height: 52px;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--clr-primary);
+      background: #fff;
+      border: 2px solid var(--clr-primary-mid);
+      border-radius: var(--radius-btn);
+      cursor: pointer;
+      transition: all var(--transition);
+      margin-bottom: 28px;
+    }
+    .retry-btn:hover {
+      background: var(--clr-primary-light);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(192, 132, 252, 0.2);
+    }
+    .retry-btn:active { transform: scale(0.98); }
+
+    /* 页脚声明 */
+    .footer {
+      text-align: center;
+      padding: 0 4px calc(20px + env(safe-area-inset-bottom));
+      font-size: 12px;
+      color: var(--clr-text-hint);
+      line-height: 1.9;
+    }
+    .footer-line {
+      width: 36px;
+      height: 1px;
+      background: var(--clr-border);
+      margin: 0 auto 12px;
+    }
+
+    /* ================================================================
+       Toast 轻提示
+    ================================================================ */
+    #toast {
+      position: fixed;
+      bottom: 88px;
+      left: 50%;
+      transform: translateX(-50%) translateY(12px);
+      background: rgba(55, 65, 81, 0.90);
+      color: #fff;
+      padding: 11px 20px;
+      border-radius: 100px;
+      font-size: 14px;
+      white-space: nowrap;
+      z-index: 8888;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      max-width: calc(100vw - 48px);
+      white-space: normal;
+      text-align: center;
+    }
+    #toast.is-visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ================================================================
+       人格图片卡样式
+    ================================================================ */
+
+    /* 图片容器：圆角卡片，图片全宽展示，匹配度徽章绝对定位 */
+    .personality-img-card {
+      position: relative;
+      width: 100%;
+      border-radius: var(--radius-card);
+      overflow: hidden;
+      box-shadow: var(--shadow-card);
+      border: 1px solid var(--clr-border);
+      margin-bottom: 14px;
+      background: #fff;
+    }
+
+    /* 人格插图：宽度撑满，高度自适应，展示完整卡片图 */
+    .personality-img {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+    }
+
+    /* 匹配度浮层：右下角半透明胶囊 */
+    .match-badge {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-radius: 14px;
+      padding: 8px 14px 6px;
+      box-shadow: 0 2px 12px rgba(147, 51, 234, 0.15);
+      border: 1px solid rgba(192, 132, 252, 0.25);
+    }
+
+    .match-badge-label {
+      font-size: 11px;
+      color: var(--clr-text-sub);
+      font-weight: 600;
+      letter-spacing: 1px;
+      line-height: 1;
+      margin-bottom: 3px;
+    }
+
+    .match-badge-value {
+      font-size: clamp(22px, 7vw, 30px);
+      font-weight: 900;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--clr-primary), var(--clr-accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* 系统备注卡片内间距微调 */
+    .remark-card {
+      padding: 16px 20px;
+    }
+
+    /* 图片加载占位（图片未加载前显示渐变背景） */
+    .personality-img-card.is-loading-img {
+      min-height: 200px;
+      background: linear-gradient(135deg, var(--clr-accent-light), var(--clr-primary-light));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ================================================================
+       响应式补充（宽屏微调）
+    ================================================================ */
+    @media (min-width: 480px) {
+      .questions-wrap  { padding: 22px 18px; }
+      .result-wrap     { padding: 0 18px; }
+    }
+    @media (min-width: 768px) {
+      .quiz-header     { padding: 18px 28px 12px; }
+      .questions-wrap  { padding: 26px 24px; }
+    }
+  </style>
+</head>
+
+<body class="is-loading">
+  <!-- 背景装饰光晕（纯视觉，不可点击） -->
+  <div class="bg-deco" aria-hidden="true">
+    <span class="d1"></span>
+    <span class="d2"></span>
+    <span class="d3"></span>
+  </div>
+
+  <!-- ================================================================
+       页面结构区
+  ================================================================ -->
+
+  <!-- ===== 加载页 ===== -->
+  <div id="loading-screen" class="screen">
+    <div>
+      <!-- 修改测试名称：改 ld-badge 的文字即可 -->
+      <div class="ld-badge">WTNL</div>
+      <!-- 修改副标题：改下面这行 p 标签的文字 -->
+      <p class="ld-tagline">MBTI 已经过时，WTNL 来了</p>
+    </div>
+    <div class="ld-spinner"></div>
+    <div class="ld-progress-wrap">
+      <div class="ld-progress-track">
+        <div class="ld-progress-bar" id="ld-bar"></div>
+      </div>
+      <div class="ld-percent" id="ld-pct">0%</div>
+    </div>
+    <p class="ld-tip">拼命加载中，请稍候…</p>
+  </div>
+
+  <!-- ===== 答题页 ===== -->
+  <div id="quiz-screen" class="screen is-hidden">
+    <!-- 吸顶标题栏 -->
+    <div class="quiz-header">
+      <!-- 修改答题页标题：改下面 quiz-title 的文字 -->
+      <div class="quiz-title">WTNL测试 · 我太难了</div>
+      <div class="quiz-prog-row">
+        <div class="quiz-prog-track">
+          <div class="quiz-prog-bar" id="quiz-prog-bar"></div>
+        </div>
+        <div class="quiz-prog-text" id="quiz-prog-text">0 / 30</div>
+      </div>
+    </div>
+
+    <!-- 题目列表（由 JS 动态渲染） -->
+    <div class="questions-wrap" id="questions-wrap"></div>
+
+    <!-- 固定底部提交按钮 -->
+    <div class="quiz-footer">
+      <button class="submit-btn is-locked" id="submit-btn" onclick="handleSubmit()">
+        查看我的人格结果
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== 结果页 ===== -->
+  <div id="result-screen" class="screen is-hidden">
+    <div class="result-wrap">
+
+      <!-- 人格图片卡（AI 生成的角色插图） -->
+      <div class="personality-img-card">
+        <img id="res-img" class="personality-img" src="" alt="人格插图" />
+        <!-- 匹配度浮层 -->
+        <div class="match-badge">
+          <span class="match-badge-label">匹配度</span>
+          <span class="match-badge-value" id="res-match">—%</span>
+        </div>
+      </div>
+
+      <!-- 系统备注卡片 -->
+      <div class="info-card remark-card">
+        <div class="res-remark" id="res-remark">系统备注加载中…</div>
+      </div>
+
+      <!-- 人格解读 -->
+      <div class="info-card">
+        <div class="card-title">该人格的解读</div>
+        <div class="res-detail" id="res-detail">加载中…</div>
+      </div>
+
+      <!-- 15 维度评分 -->
+      <div class="info-card">
+        <div class="card-title">十五维度评分</div>
+        <div id="dims-wrap"><!-- 维度条由 JS 渲染 --></div>
+      </div>
+
+      <!-- 重新测试 -->
+      <button class="retry-btn" onclick="handleRetry()">重新测试</button>
+
+      <!-- 页脚声明 -->
+      <div class="footer">
+        <div class="footer-line"></div>
+        <!-- 修改页脚声明：改下面 p 标签的文字 -->
+        <p>本测试纯属娱乐，与心理学、科学及严谨性毫无关联。</p>
+        <p>请勿用于诊断、面试、相亲、分手或任何严肃场合。</p>
+        <p>笑一笑就好，别太当真，当真你就输了。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast 全局提示框 -->
+  <div id="toast"></div>
+
+  <!-- ================================================================
+       JavaScript 逻辑区
+  ================================================================ -->
+  <script>
+    /* ================================================================
+       题库配置区
+       ----------------------------------------------------------------
+       修改说明：
+         - 改题目文字 → 修改 title 字段
+         - 改选项文字 → 修改 options[x].text 字段
+         - 改选项分值 → 修改 options[x].score（建议保持 1~3）
+         - 新增/删除题目 → 在数组中增删对象，并同步 totalQ 常量
+       ----------------------------------------------------------------
+       总分范围：30（全选1）~ 90（全选3）
+    ================================================================ */
+    const questionBank = [
+      {
+        id: 1,
+        title: "早上闹钟第一次响，你的真实反应是：",
+        options: [
+          { text: "秒关，翻身继续睡，这次真的是最后一次了（已说了三年）", score: 1 },
+          { text: "迷迷糊糊按掉，挣扎了两分钟，但身体确实自动起来了", score: 2 },
+          { text: "早就醒了，就等闹钟响，给自己一个仪式感十足的起床理由", score: 3 }
+        ]
+      },
+      {
+        id: 2,
+        title: "群里有人@所有人说「大家聊聊对最近工作/学习的看法」，你：",
+        options: [
+          { text: "已读，沉默，假装没看见，这是个圈套，我不上当", score: 1 },
+          { text: "回了个「嗯嗯」或「好的」，内心毫无波澜", score: 2 },
+          { text: "立刻打了 400 字，分了三个小标题，还附了总结", score: 3 }
+        ]
+      },
+      {
+        id: 3,
+        title: "面对一件完全不想做但必须完成的事，你通常：",
+        options: [
+          { text: "拖到最后一秒，靠 deadline 的肾上腺素硬撑完成", score: 1 },
+          { text: "边抱怨边做，全程叹气，但确实最后做完了", score: 2 },
+          { text: "直接处理掉，留在待办列表里比做完更消耗精力", score: 3 }
+        ]
+      },
+      {
+        id: 4,
+        title: "朋友跟你说「你最近有点变了」，你心里第一反应是：",
+        options: [
+          { text: "没有吧？（其实我也不知道自己是什么状态）", score: 1 },
+          { text: "嗯，可能吧，但没什么特别的感觉", score: 2 },
+          { text: "当然，我一直在进化，下一版本敬请期待", score: 3 }
+        ]
+      },
+      {
+        id: 5,
+        title: "手机快没电了，出门又没带充电宝，你会：",
+        options: [
+          { text: "进入焦虑模式，每隔三分钟刷一次剩余电量", score: 1 },
+          { text: "随便，没电就没电，偶尔断网其实挺好的", score: 2 },
+          { text: "立刻开极省电，关掉所有 App，精准续命到目的地", score: 3 }
+        ]
+      },
+      {
+        id: 6,
+        title: "深夜 12 点，脑子里突然蹦出一个「绝妙主意」，你：",
+        options: [
+          { text: "记在备忘录里，明天打开看，发现只写了「啊」", score: 1 },
+          { text: "觉得明天肯定还记得，然后永远不再想起", score: 2 },
+          { text: "立刻展开思考，或者至少规划出了下一步行动清单", score: 3 }
+        ]
+      },
+      {
+        id: 7,
+        title: "你的购物车里「加了但迟迟不买」的东西大概有多少：",
+        options: [
+          { text: "不计其数，购物车是我的另一个情绪垃圾桶", score: 1 },
+          { text: "十几件，有时回来看看，缘分到了再说", score: 2 },
+          { text: "基本没有，决定买了直接下单，我不做情感储藏", score: 3 }
+        ]
+      },
+      {
+        id: 8,
+        title: "朋友向你倾诉了 20 分钟的烦恼，说完后你：",
+        options: [
+          { text: "全程认真听，听完自己也被带烂了，需要被安慰了", score: 1 },
+          { text: "嗯嗯啊啊回应，基本在线，思绪偶尔漂去了别处", score: 2 },
+          { text: "听完立刻给出三套解决方案，还帮对方排好了优先级", score: 3 }
+        ]
+      },
+      {
+        id: 9,
+        title: "你觉得「努力」这件事：",
+        options: [
+          { text: "很重要，我也知道，但我目前还处于「预热」阶段", score: 1 },
+          { text: "该努力时努力，不想动时就歇着，顺其自然吧", score: 2 },
+          { text: "是必须的，闲着坐着我反而更难受、更焦虑", score: 3 }
+        ]
+      },
+      {
+        id: 10,
+        title: "你发了条朋友圈，3 小时内一个点赞都没有，你：",
+        options: [
+          { text: "默默删掉，就当这段历史不存在，一笔勾销", score: 1 },
+          { text: "无所谓，大家都在忙，不用在意这个", score: 2 },
+          { text: "没关系，真正有价值的内容不需要外部认可来验证", score: 3 }
+        ]
+      },
+      {
+        id: 11,
+        title: "你描述自己目前的精神状态，最接近：",
+        options: [
+          { text: "蜡烛两头烧，但火焰很小，随时可能熄灭", score: 1 },
+          { text: "凑合，没崩，这已经是我对近期生活的最高期待", score: 2 },
+          { text: "稳定在线，偶尔有小惊喜，整体还是可以的", score: 3 }
+        ]
+      },
+      {
+        id: 12,
+        title: "在路上有人突然跑来问你路怎么走，你：",
+        options: [
+          { text: "尴尬一笑：「不好意思，我也不太熟……」", score: 1 },
+          { text: "大概指了个方向，但不保证百分之百准确", score: 2 },
+          { text: "掏出手机帮对方导航，顺手介绍了两条更快的捷径", score: 3 }
+        ]
+      },
+      {
+        id: 13,
+        title: "你理想中的完美周末是：",
+        options: [
+          { text: "关门谢客，手机静音，和整个世界断开连接", score: 1 },
+          { text: "有点安排但弹性很大，饿了再说，困了就睡", score: 2 },
+          { text: "提前排好计划，爬山或学新东西，充实感满分", score: 3 }
+        ]
+      },
+      {
+        id: 14,
+        title: "有人跟你说「你想太多了」，你心里会：",
+        options: [
+          { text: "对对对，我也觉得，但我就是控制不了自己", score: 1 },
+          { text: "可能吧，我也搞不清楚哪里算「想太多」的边界", score: 2 },
+          { text: "不是我想太多，是你们想得太少，思考不是毛病", score: 3 }
+        ]
+      },
+      {
+        id: 15,
+        title: "面对一份「很重要」的合同或协议，你：",
+        options: [
+          { text: "直接滑到底部点确认，反正读了也改变不了什么", score: 1 },
+          { text: "扫了一眼关键条款，感觉差不多应该没问题", score: 2 },
+          { text: "逐条阅读，有疑问会标注，不明白的一定追问清楚", score: 3 }
+        ]
+      },
+      {
+        id: 16,
+        title: "和一群不太熟的人吃饭，你通常：",
+        options: [
+          { text: "埋头干饭，配合性地点头微笑，全程盼着散场", score: 1 },
+          { text: "能聊就跟着聊，聊不上去就专心吃，随缘", score: 2 },
+          { text: "主动找话题，把冷场消灭在萌芽状态，场子我来撑", score: 3 }
+        ]
+      },
+      {
+        id: 17,
+        title: "有人给你发来一篇很长的文章说「你一定要看」，你：",
+        options: [
+          { text: "收藏了，然后把这件事从记忆里彻底抹除", score: 1 },
+          { text: "拉了下进度条，看了开头和结尾，算看过了吧", score: 2 },
+          { text: "认认真真读完，还截图了几段觉得重要的句子", score: 3 }
+        ]
+      },
+      {
+        id: 18,
+        title: "你对「明天会更好」这句话的真实态度是：",
+        options: [
+          { text: "听着挺好听的，但我个人持保留意见，不太信", score: 1 },
+          { text: "说不定，随缘，走一步看一步，都行", score: 2 },
+          { text: "会的，因为我有计划让它变得更好，不靠运气靠行动", score: 3 }
+        ]
+      },
+      {
+        id: 19,
+        title: "你手机相册里存了多少「以后用得上」但从没发出去的图：",
+        options: [
+          { text: "相册快撑爆了，但我舍不得删，这是我的精神库存", score: 1 },
+          { text: "几十张，有时还真翻出来用了，偶尔会派上场", score: 2 },
+          { text: "我会定期清理相册，占空间的东西留着干什么", score: 3 }
+        ]
+      },
+      {
+        id: 20,
+        title: "一件事情搞砸了，你的第一反应通常是：",
+        options: [
+          { text: "在脑子里把整件事复盘了十几遍，还是觉得都是自己的错", score: 1 },
+          { text: "有点烦，但事情都过去了，就算了，下次注意", score: 2 },
+          { text: "快速分析原因，制定补救方案，不在同一个坑里摔两次", score: 3 }
+        ]
+      },
+      {
+        id: 21,
+        title: "你的微信未读消息数量，通常维持在：",
+        options: [
+          { text: "几百到几千不等，看见小红点焦虑，但就是不点", score: 1 },
+          { text: "不固定，有时候多有时少，凑合清理一下", score: 2 },
+          { text: "从不超过十条，看见未读点就如芒刺背，立刻清完", score: 3 }
+        ]
+      },
+      {
+        id: 22,
+        title: "在做一个比较重要的决定之前，你：",
+        options: [
+          { text: "纠结半天，最后凭感觉选了一个，或者干脆继续拖着", score: 1 },
+          { text: "想了想，感觉差不多，就这个了，应该没问题", score: 2 },
+          { text: "列了利弊分析，比较了至少三个方案，再下决定", score: 3 }
+        ]
+      },
+      {
+        id: 23,
+        title: "看到别人在认真学习或拼命工作，你的内心会：",
+        options: [
+          { text: "羡慕，感叹一句「好厉害」，然后继续躺着", score: 1 },
+          { text: "有点触动，也跟着学了十分钟，然后就没有然后了", score: 2 },
+          { text: "立刻升起竞争欲，变得更想做事了，这很有用", score: 3 }
+        ]
+      },
+      {
+        id: 24,
+        title: "你睡前通常会做什么：",
+        options: [
+          { text: "刷刷刷，一抬头两点了，下次一定早睡（已立誓三年）", score: 1 },
+          { text: "看一会儿手机，困了就自然睡，没有固定习惯", score: 2 },
+          { text: "列好明天的清单，按时上床，睡眠管理也是竞争力", score: 3 }
+        ]
+      },
+      {
+        id: 25,
+        title: "当你同时有三件事都需要处理，你通常：",
+        options: [
+          { text: "脑子开始转圈，三件都没开始，在原地等待奇迹", score: 1 },
+          { text: "先做感觉最简单的那件，其他走一步看一步", score: 2 },
+          { text: "按紧急和重要程度排好序，逐一处理，效率优先", score: 3 }
+        ]
+      },
+      {
+        id: 26,
+        title: "你觉得自己的人生目前处于：",
+        options: [
+          { text: "开机中……进度条卡在某个百分比，已经很久了", score: 1 },
+          { text: "运行中，没有高光时刻，但也没有崩溃，将就着", score: 2 },
+          { text: "高速运转，偶尔过热，但整体在轨道上稳步向好", score: 3 }
+        ]
+      },
+      {
+        id: 27,
+        title: "如果现在送你一个完全自由的下午，你会：",
+        options: [
+          { text: "躺着刷手机睡觉，心想「总算能摆烂了」", score: 1 },
+          { text: "随便逛逛或者追剧，没有特别的计划，放松就好", score: 2 },
+          { text: "规划好怎么利用这时间，学新东西或者完成积压已久的事", score: 3 }
+        ]
+      },
+      {
+        id: 28,
+        title: "你觉得自己在大多数人眼里是个什么样的人：",
+        options: [
+          { text: "可能比较透明，存在感不强，有随时消失的质感", score: 1 },
+          { text: "还行，正常人，不特别出众也没什么大问题", score: 2 },
+          { text: "可靠、有条理，大家有事情会想到来找我", score: 3 }
+        ]
+      },
+      {
+        id: 29,
+        title: "有人问「你最近开心吗」，你的真实答案是：",
+        options: [
+          { text: "不太开心，说不清为什么，就是有点沉，有点累", score: 1 },
+          { text: "还行，没特别开心也没特别不开心，就这样过着", score: 2 },
+          { text: "挺好的，最近有点小成就感，状态不错，谢谢关心", score: 3 }
+        ]
+      },
+      {
+        id: 30,
+        title: "最后一题：你认真做完了前 29 道题，对于这份测试，你：",
+        options: [
+          { text: "终于结束了，我需要一段时间来恢复，心力有点憔悴", score: 1 },
+          { text: "还好，做完了，没啥特别感受，就是做完了而已", score: 2 },
+          { text: "挺好的，我喜欢这种梳理自己的感觉，很有收获", score: 3 }
+        ]
+      }
+    ];
+
+    /* ================================================================
+       人格结果配置区
+       ----------------------------------------------------------------
+       修改说明：
+         - 改人格代码   → code 字段（英文，全大写）
+         - 改中文名称   → name 字段
+         - 改分值区间   → minScore / maxScore（两端包含）
+         - 改系统备注   → remark 字段（短，一两句）
+         - 改详细解读   → detail 字段（用 \n\n 分隔段落）
+       ----------------------------------------------------------------
+       总分范围 30~90，共 10 个类型，每类约覆盖 6 分
+       中间区间（54~79）最常见，给了更多类型细分
+    ================================================================ */
+    const personalityTypes = [
+      {
+        code: "NULL",
+        name: "虚空体",
+        minScore: 30,
+        maxScore: 38,
+        remark: "系统检测到您的存在感正在离线，建议先充个电再做人。",
+        detail: `你不是在摆烂，你只是暂时超出了自己的承载上限，进入了「保护性关机」模式。
+
+NULL 型的人通常拥有过多的内心戏和过少的对外输出——不是因为不想，而是因为太累了。你可以把一件事在脑子里推演七遍，然后一遍都没有执行。不是拖延，是你的大脑在后台运行了太多进程，前台已经没有资源了。
+
+你非常敏感，但习惯把这种敏感藏起来，因为表达出来好像也没什么用。你偶尔会怀疑自己的存在方式是不是哪里不对劲，但也懒得深究，只是继续沉默着往前走。
+
+你的沉默不代表你没有价值，只代表你太累了。找个地方充一下电吧，世界等你回来。`
+      },
+      {
+        code: "ECO",
+        name: "低耗型",
+        minScore: 39,
+        maxScore: 46,
+        remark: "省电模式的人类，偶尔闪现神光，但主要还是在省电。",
+        detail: `你是一个高度节省能量的人——不是懒，而是你在用最小成本维持最稳定运转，这是一种相当高级的能力。
+
+ECO 型的人有一种天然的效能感知力：能在任何环境里找到最低耗散的位置安放自己。该做的事会做，不必要的事绝不多费精力。别人眼里的「佛系」，其实是你对能量分配的精准计算。
+
+你不是没有欲望，只是欲望经过了漫长的内部审核，很多提案在「立项阶段」就被驳回了。你享受安静，享受不被打扰，享受那种不需要表演什么的时刻。
+
+但有时候，你也会突然来一段神来之笔，把周围所有人都惊艳一把。然后再次平静，好像什么都没发生。这就是你。`
+      },
+      {
+        code: "BURN",
+        name: "内耗精",
+        minScore: 47,
+        maxScore: 53,
+        remark: "能量全部用于内部燃烧，对外几乎没有输出，但内心烈焰滔天。",
+        detail: `你是一台高性能内燃机，只不过排气管堵住了——能量全在里面转，外面基本看不出来。
+
+BURN 型的人通常拥有异常丰富的内心世界：一句话能分析七层含义，一件事能构建出三十二种可能，然后在这些可能里反复横跳，直到精疲力竭。你不是没有能力，你只是把 70% 的能量花在了自己和自己的对话上。
+
+你很容易为别人的事比对方本人还着急，因为你的感知神经过于灵敏。好事坏事你都感受得特别深，只是表面上看不出来——你习惯把所有东西吃进去自己消化。
+
+有些话你想说但没说，有些事你想做但没做。不是你不行，是你想得太周全，反而迈不出第一步。`
+      },
+      {
+        code: "FLOW",
+        name: "随波者",
+        minScore: 54,
+        maxScore: 59,
+        remark: "水往哪边流你就往哪边走，但你把这叫做「顺其自然」，听起来优雅多了。",
+        detail: `你是那种在生命之河里游得很自如的人——不是因为你特别强，而是因为你不怎么挣扎。
+
+FLOW 型的人有一种天然的适应能力，能在几乎任何环境里找到一个舒适的位置安放自己。你不爱出风头，也不太抗拒变化，遇事的反应通常是「好的，行，随便，都可以」。
+
+你有时候会被人说「太随便了」或者「没主见」，但你知道，你只是不想为了一些不重要的事情消耗情感能量。你的核心诉求其实很简单：别烦我，我们都好好的就够了。
+
+你偶尔也有自己的想法，只是很少说出来，因为好像也没有人问。如果有人问了，你可能会让对方刮目相看。`
+      },
+      {
+        code: "IRON",
+        name: "嘴硬人",
+        minScore: 60,
+        maxScore: 64,
+        remark: "嘴上从没输过，心里已经输了一百次，但嘴上就是不认。",
+        detail: `你是一个在战场上从未缴械投降的人——不是因为你真的赢了，而是因为你不知道怎么开口说「我不行了」。
+
+IRON 型的人对外呈现出一种稳如磐石的状态。被打击了？继续。被质疑了？怼回去。犯错了？我有我的理由。这不是傲慢，这是你在各种环境中进化出来的自我保护机制，是你的盔甲。
+
+你的内心其实比外表敏感得多。很多话你听进去了，只是不让对方看出来。你有很强的自尊心，维护它需要消耗大量能量，但你觉得值得，因为这是你感到安全的方式。
+
+偶尔示弱不会让你变弱，但可能会让你轻松很多。那口气，可以稍微松一松了。`
+      },
+      {
+        code: "SHOW",
+        name: "表演家",
+        minScore: 65,
+        maxScore: 69,
+        remark: "人生如戏，全靠你一个人撑着，幕布好像从未落下过。",
+        detail: `你不是在「表演」，你只是长期活在一个比较有观众感的状态里，并且已经习惯了。
+
+SHOW 型的人对他人的感受和眼光有极高的感知力——你知道别人在想什么，知道什么样的表达会被接受，也知道怎样在不同场合快速切换自己的频道。这是一种很厉害的社交能力，只是长期使用会让你忘记：你自己的频道，到底是什么调。
+
+你有时候会觉得自己像一个永远在台上的演员，回到后台才发现不知道摘掉哪个面具。你不是两面人，你只是太擅长帮助别人感到舒适，以至于把自己的部分调成了静音。
+
+下台的时候，你只需要是你自己就够了。`
+      },
+      {
+        code: "WOW",
+        name: "整活侠",
+        minScore: 70,
+        maxScore: 74,
+        remark: "没有什么问题是一个梗解决不了的，如果有，那就两个。",
+        detail: `你是人群里那道不按常理出牌的光，而且你乐在其中。
+
+WOW 型的人有一种天生的整活能力——你对荒诞的事情有异常高的接受度，甚至会主动制造荒诞。在别人觉得「这不行吧」的地方，你已经在构思怎么把它变得更好玩了。
+
+你的脑回路和大多数人不完全一样，说出来的东西会让周围人愣一下，然后突然笑出声。你享受这种效果，这是你和世界互动的方式——用荒诞对抗荒诞，用幽默消解沉重。
+
+你不是不认真，你只是不愿意用沉重的方式面对沉重的事情。事实上，你通常比看起来更深刻，只是藏在了所有「哈哈哈」的后面。`
+      },
+      {
+        code: "ROLL",
+        name: "卷神",
+        minScore: 75,
+        maxScore: 79,
+        remark: "不知道为什么要卷，但就是停不下来，可能是基因里写好的。",
+        detail: `你是那种闲下来反而会感到不安全感的人——运动才是你的默认状态。
+
+ROLL 型的人有一种根深蒂固的「在运动中才有安全感」的特质。你的计划本比别人的厚三倍，待办列表永远在增加，效率高到有时候会给周围人带来一点点无形的压力——虽然你完全不是这个意思。
+
+你有时候会说「最近好累」，但第二天的行动并没有任何改变。不是你不想停，是停下来的那种空落落的感觉让你更不舒服，你宁可转起来。
+
+追求进步没有问题，只是偶尔，试着坐下来什么都不做。你会发现那个「无所事事的自己」，其实也挺有趣的。`
+      },
+      {
+        code: "HERO",
+        name: "救场王",
+        minScore: 80,
+        maxScore: 85,
+        remark: "只要我再多管一点闲事，这个世界就能和平，我确信。",
+        detail: `你是每个群里那个「没事吧？需要帮忙吗？我来」的人——你的本能是把乱的东西理顺。
+
+HERO 型的人有极强的责任感和行动力。当别人还在观望的时候，你已经在想怎么解决了。你不喜欢混乱，不喜欢事情悬而未决，你的存在让身边很多人都觉得有依靠。
+
+你在关系里付出很多，而且通常不计回报——因为你觉得帮助别人本身就有意义。但偶尔你也会想：有没有人，会主动问我一句「你最近还好吗」？
+
+你有时候太专注于救别人，忽略了自己也在慢慢消耗。你不需要救所有人，你只需要先好好救一救自己。`
+      },
+      {
+        code: "PEAK",
+        name: "天命人",
+        minScore: 86,
+        maxScore: 90,
+        remark: "宇宙好像钦点了你，只是暂时还没告诉你是干什么用的。",
+        detail: `恭喜你，你测出了这份测试里最稀有的人格类型之一。
+
+PEAK 型的人有一种很难言说的「自洽感」——你清楚自己想要什么，也知道大概怎么去得到，更重要的是，你对自己的状态有一种成熟的接受度：好的时候感恩，不好的时候也不会过分崩溃，能调节。
+
+你有行动力，有判断力，还有一种「万事皆可谈」的沉稳气场。你不是没有问题，你只是处理问题的方式比大多数人更有效率，还留着余量。
+
+不过……你真的有这么好吗？还是说，你只是非常非常擅长在人格测试里表现得很好？这也是一种能力。我们不评价，拿你的结果开心就好。`
+      }
+    ];
+
+    /* ================================================================
+       维度配置区
+       ----------------------------------------------------------------
+       共 15 个维度，用于结果页进度条可视化
+       修改维度名称：直接改 name 字段
+       每个维度的实际数值由评分算法自动生成，无需手动设置
+    ================================================================ */
+    const dimensionConfig = [
+      { name: "精神稳定度",     corr: +0.65 }, // 正相关：分越高越稳定
+      { name: "社交续航力",     corr: +0.70 }, // 正相关
+      { name: "摆烂天赋值",     corr: -0.75 }, // 负相关：分越低越会摆烂
+      { name: "内耗指数",       corr: -0.60 }, // 负相关：分越低内耗越重
+      { name: "嘴硬程度",       corr: +0.30 }, // 弱正相关
+      { name: "整活能力",       corr: +0.45 }, // 正相关
+      { name: "躺平意志力",     corr: -0.68 }, // 负相关：分越低越能躺
+      { name: "情绪敏感度",     corr: -0.40 }, // 负相关：分越低越敏感
+      { name: "翻车频率",       corr: -0.50 }, // 负相关：分越低翻车越多
+      { name: "救场能力",       corr: +0.65 }, // 正相关
+      { name: "自我感觉良好度", corr: +0.42 }, // 正相关
+      { name: "佛系指数",       corr: -0.55 }, // 负相关：分越低越佛
+      { name: "输出欲望值",     corr: +0.58 }, // 正相关
+      { name: "防刺能力",       corr: +0.38 }, // 正相关
+      { name: "宇宙感知力",     corr: +0.25 }  // 弱正相关
+    ];
+
+    /* ================================================================
+       交互逻辑区
+       非必要请勿修改以下代码
+    ================================================================ */
+
+    // ---------- 全局状态 ----------
+    const answers = {};                    // { 题目id: 分值 }
+    const TOTAL_Q = questionBank.length;   // 总题数，与题库同步
+    let dimScoresCache = [];               // 缓存维度分，供结果页动画使用
+
+    // ---------- 工具函数 ----------
+
+    /**
+     * 显示 Toast 轻提示
+     * @param {string} msg      提示文字
+     * @param {number} duration 显示时长（毫秒）
+     */
+    function showToast(msg, duration) {
+      duration = duration || 2200;
+      var el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('is-visible');
+      setTimeout(function() { el.classList.remove('is-visible'); }, duration);
+    }
+
+    /**
+     * 切换屏幕：隐藏所有屏幕，显示目标屏幕并播放进场动画
+     * @param {string} id 目标屏幕的元素 id
+     */
+    function showScreen(id) {
+      var screens = document.querySelectorAll('.screen');
+      for (var i = 0; i < screens.length; i++) {
+        screens[i].classList.add('is-hidden');
+        screens[i].classList.remove('enter-anim');
+      }
+      var target = document.getElementById(id);
+      target.classList.remove('is-hidden');
+      // 强制 reflow 后再加动画类，确保动画每次都触发
+      void target.offsetWidth;
+      target.classList.add('enter-anim');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+
+    // ---------- 加载逻辑 ----------
+
+    /**
+     * 启动加载进度条动画。
+     * 页面资源未加载完成时，进度条停在 ~80%；
+     * 资源加载完成（window.load）后，快速推进至 100%，然后跳转答题页。
+     * 全程 body.is-loading 阻止所有点击。
+     */
+    function startLoading() {
+      var bar     = document.getElementById('ld-bar');
+      var pctEl   = document.getElementById('ld-pct');
+      var progress      = 0;
+      var loaded        = false;
+
+      // 监听页面资源加载完成
+      if (document.readyState === 'complete') {
+        loaded = true;
+      } else {
+        window.addEventListener('load', function() { loaded = true; });
+      }
+      // 保底：最多 5 秒后强制继续
+      setTimeout(function() { loaded = true; }, 5000);
+
+      var timer = setInterval(function() {
+        var target = loaded ? 100 : 80;
+        if (progress < target) {
+          var step = loaded
+            ? Math.max(4, (100 - progress) / 6)
+            : (Math.random() * 6 + 2);
+          progress = Math.min(progress + step, target);
+          bar.style.width     = Math.floor(progress) + '%';
+          pctEl.textContent   = Math.floor(progress) + '%';
+        }
+        if (progress >= 100) {
+          clearInterval(timer);
+          // 短暂停留，让用户看到 100%
+          setTimeout(function() {
+            document.body.classList.remove('is-loading');
+            renderQuestions();
+            showScreen('quiz-screen');
+          }, 450);
+        }
+      }, 80);
+    }
+
+    // ---------- 答题页渲染 ----------
+
+    /**
+     * 将题库渲染为 DOM，并重置所有选中状态。
+     * 每次调用都会完全重建题目列表（用于重置测试）。
+     */
+    function renderQuestions() {
+      var wrap = document.getElementById('questions-wrap');
+      wrap.innerHTML = '';
+
+      questionBank.forEach(function(q) {
+        var card = document.createElement('div');
+        card.className = 'q-card';
+        card.id = 'qc-' + q.id;
+
+        var optHtml = q.options.map(function(opt, idx) {
+          var letter = String.fromCharCode(65 + idx); // A / B / C
+          return '<button class="opt-btn"'
+            + ' onclick="selectOption(' + q.id + ',' + opt.score + ',this)"'
+            + ' data-score="' + opt.score + '">'
+            + '<span class="opt-dot"></span>'
+            + '<span class="opt-text">' + letter + '. ' + opt.text + '</span>'
+            + '</button>';
+        }).join('');
+
+        card.innerHTML =
+          '<div class="q-no">Q' + q.id + ' / ' + TOTAL_Q + '</div>'
+          + '<div class="q-title">' + q.title + '</div>'
+          + '<div class="opts-list" id="opts-' + q.id + '">' + optHtml + '</div>';
+
+        wrap.appendChild(card);
+      });
+    }
+
+    /**
+     * 处理选项点击事件
+     * @param {number}      qid   题目 id
+     * @param {number}      score 选项分值
+     * @param {HTMLElement} btn   被点击的按钮
+     */
+    function selectOption(qid, score, btn) {
+      // 取消同题其他选项的选中态
+      var opts = document.getElementById('opts-' + qid);
+      var allBtns = opts.querySelectorAll('.opt-btn');
+      for (var i = 0; i < allBtns.length; i++) {
+        allBtns[i].classList.remove('is-selected');
+      }
+      btn.classList.add('is-selected');
+
+      var wasNew = answers[qid] === undefined;
+      answers[qid] = score;
+      updateProgress();
+
+      // 首次作答该题时，滚动到下一道未答题
+      if (wasNew) {
+        var nextQ = null;
+        for (var j = 0; j < questionBank.length; j++) {
+          if (answers[questionBank[j].id] === undefined) {
+            nextQ = questionBank[j];
+            break;
+          }
+        }
+        if (nextQ) {
+          var nextCard = document.getElementById('qc-' + nextQ.id);
+          if (nextCard) {
+            setTimeout(function() {
+              nextCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 180);
+          }
+        }
+      }
+    }
+
+    /**
+     * 更新顶部进度条和提交按钮状态
+     */
+    function updateProgress() {
+      var done  = Object.keys(answers).length;
+      var ratio = done / TOTAL_Q;
+      document.getElementById('quiz-prog-bar').style.width  = (ratio * 100) + '%';
+      document.getElementById('quiz-prog-text').textContent = done + ' / ' + TOTAL_Q;
+
+      var btn = document.getElementById('submit-btn');
+      if (done >= TOTAL_Q) {
+        btn.classList.remove('is-locked');
+        btn.textContent = '✦ 查看我的人格结果';
+      } else {
+        btn.classList.add('is-locked');
+        btn.textContent = '查看我的人格结果';
+      }
+    }
+
+    // ---------- 提交与计算 ----------
+
+    /**
+     * 点击提交按钮的处理函数。
+     * 未答完时给出提示并定位到第一道未答题；
+     * 答完后计算结果并跳转结果页。
+     */
+    function handleSubmit() {
+      var done = Object.keys(answers).length;
+      if (done < TOTAL_Q) {
+        var left = TOTAL_Q - done;
+        showToast('还有 ' + left + ' 道题没作答，答完才能看结果哦～');
+        // 定位到第一道未答题并高亮提示
+        for (var i = 0; i < questionBank.length; i++) {
+          if (answers[questionBank[i].id] === undefined) {
+            var card = document.getElementById('qc-' + questionBank[i].id);
+            if (card) {
+              card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              card.classList.add('pulse');
+              setTimeout(function(c) {
+                return function() { c.classList.remove('pulse'); };
+              }(card), 1600);
+            }
+            break;
+          }
+        }
+        return;
+      }
+
+      var result = calcResult();
+      renderResult(result);
+      showScreen('result-screen');
+
+      // 延迟触发维度条动画（等进场动画完成后）
+      setTimeout(function() {
+        for (var k = 0; k < dimScoresCache.length; k++) {
+          var fill = document.getElementById('df-' + k);
+          if (fill) fill.style.width = dimScoresCache[k] + '%';
+        }
+      }, 450);
+    }
+
+    /**
+     * 根据答题结果计算人格类型、匹配度和 15 维度分值
+     * @returns {{ type, matchRate, dimScores }}
+     */
+    function calcResult() {
+      // 累加总分
+      var total = 0;
+      var vals  = Object.values(answers);
+      for (var i = 0; i < vals.length; i++) total += vals[i];
+
+      // 按区间匹配人格类型（默认取最后一种保底）
+      var matched = personalityTypes[personalityTypes.length - 1];
+      for (var j = 0; j < personalityTypes.length; j++) {
+        var pt = personalityTypes[j];
+        if (total >= pt.minScore && total <= pt.maxScore) {
+          matched = pt;
+          break;
+        }
+      }
+
+      // 匹配度：总分越接近区间中心，匹配度越高（82~97 区间）
+      var center    = (matched.minScore + matched.maxScore) / 2;
+      var halfRange = Math.max((matched.maxScore - matched.minScore) / 2, 1);
+      var dist      = Math.abs(total - center);
+      var matchRate = Math.round(97 - (dist / halfRange) * 15);
+      matchRate     = Math.max(82, Math.min(97, matchRate));
+
+      // 生成 15 维度分值
+      var dimScores = calcDimScores(total, vals);
+      dimScoresCache = dimScores; // 缓存供动画使用
+
+      return { type: matched, matchRate: matchRate, dimScores: dimScores, total: total };
+    }
+
+    /**
+     * 根据总分和答题值生成 15 个维度的娱乐化评分（35~98）。
+     * 每个维度有一个与总分的相关系数（corr），影响分值方向；
+     * 同时加入基于具体答题的「个性化扰动」，让结果看起来更像测出来的。
+     *
+     * @param {number}   total 总分
+     * @param {number[]} vals  所有答题分值数组
+     * @returns {number[]} 15 个维度分值数组
+     */
+    function calcDimScores(total, vals) {
+      var base = (total - 30) / 60; // 归一化至 0~1
+      var scores = [];
+
+      for (var i = 0; i < dimensionConfig.length; i++) {
+        var corr = dimensionConfig[i].corr;
+        var baseVal;
+
+        if (corr > 0) {
+          // 正相关：base 越大，分越高
+          baseVal = 38 + base * 52 * corr + (1 - Math.abs(corr)) * 14;
+        } else {
+          // 负相关：base 越大，分越低
+          baseVal = 95 - base * 52 * Math.abs(corr) - (1 - Math.abs(corr)) * 12;
+        }
+
+        // 个性化扰动：基于第 i*7 % n 题的答题值偏移 ±6
+        var seed  = vals[(i * 7) % vals.length] || 2;
+        var noise = (seed - 2) * 3; // -3 / 0 / +3
+
+        var score = Math.round(baseVal + noise);
+        scores.push(Math.max(35, Math.min(98, score)));
+      }
+
+      return scores;
+    }
+
+    // ---------- 结果页渲染 ----------
+
+    /**
+     * 将结果数据写入结果页 DOM
+     * 维度进度条宽度初始为 0，由 handleSubmit 延迟触发动画
+     *
+     * @param {{ type, matchRate, dimScores }} result
+     */
+    function renderResult(result) {
+      var t = result.type;
+      document.getElementById('res-match').textContent  = result.matchRate + '%';
+      document.getElementById('res-remark').textContent = t.remark;
+      document.getElementById('res-detail').textContent = t.detail;
+
+      // 设置人格插图：文件名规则为 assets/type_代码.png
+      var imgWrap = document.querySelector('.personality-img-card');
+      var imgEl   = document.getElementById('res-img');
+      imgWrap.classList.add('is-loading-img');
+      imgEl.onload = function() {
+        imgWrap.classList.remove('is-loading-img');
+      };
+      imgEl.onerror = function() {
+        // 图片加载失败时，退化为纯文字卡片
+        imgWrap.classList.remove('is-loading-img');
+        imgWrap.innerHTML =
+          '<div style="padding:28px 22px 24px;text-align:center;">'
+          + '<div class="res-label">你的人格类型是</div>'
+          + '<div class="res-code">' + t.code + '</div>'
+          + '<div class="res-name">' + t.name + '</div>'
+          + '</div>'
+          + '<div class="match-badge"><span class="match-badge-label">匹配度</span>'
+          + '<span class="match-badge-value" id="res-match">' + result.matchRate + '%</span></div>';
+      };
+      imgEl.alt = t.name + ' · ' + t.code;
+      imgEl.src = 'assets/type_' + t.code + '.png';
+
+      // 渲染 15 维度评分条
+      var wrap = document.getElementById('dims-wrap');
+      wrap.innerHTML = '';
+      dimensionConfig.forEach(function(dim, i) {
+        var score = result.dimScores[i];
+        var item  = document.createElement('div');
+        item.className = 'dim-item';
+        item.innerHTML =
+          '<div class="dim-row">'
+          + '<span class="dim-name">' + dim.name + '</span>'
+          + '<span class="dim-score">' + score + '</span>'
+          + '</div>'
+          + '<div class="dim-track">'
+          + '<div class="dim-fill" id="df-' + i + '" style="width:0%"></div>'
+          + '</div>';
+        wrap.appendChild(item);
+      });
+    }
+
+    // ---------- 重新测试 ----------
+
+    /**
+     * 清空所有答案，重新渲染题目，跳回答题页
+     */
+    function handleRetry() {
+      // 清空答题记录
+      var keys = Object.keys(answers);
+      for (var i = 0; i < keys.length; i++) delete answers[keys[i]];
+      dimScoresCache = [];
+
+      renderQuestions();
+      updateProgress();
+      showScreen('quiz-screen');
+    }
+
+    // ---------- 启动 ----------
+    startLoading();
+  </script>
+</body>
+</html>
